@@ -48,6 +48,7 @@ textarea.nowrap { white-space: pre; overflow-x: auto; }
       <button class="corner-btn paste-btn" onclick="pasteClipboard()">粘贴</button>
     </div>
   </div>
+
   <div class="panel">
     <div class="panel-header">
       <label>输出</label>
@@ -93,7 +94,6 @@ function toggleOutputWrap(el) {
   el.textContent = outputEl.classList.contains('nowrap') ? '折行: 关' : '折行: 开';
 }
 
-// --- JSON折叠渲染 ---
 let foldId = 0;
 function renderJsonHtml(obj, indent) {
   indent = indent || 0;
@@ -115,7 +115,6 @@ function renderJsonHtml(obj, indent) {
       '\n<span class="fold-content" id="fc' + id + '">' + lines.join('\n') + '\n' + pad + '</span>' +
       '<span class="fold-placeholder" id="fp' + id + '" onclick="toggleFold(' + id + ')">' + summary + '</span>]';
   }
-  // object
   const keys = Object.keys(obj);
   if (keys.length === 0) return '{}';
   let lines = [];
@@ -173,7 +172,6 @@ function formatJSON() {
     const obj = JSON.parse(inputEl.value);
     setOutput(JSON.stringify(obj, null, 2), true, obj);
   } catch(e) {
-    // 尝试对不完整JSON做token级格式化
     const result = tokenFormat(inputEl.value);
     if (result) { setOutput(result, false); outputEl.innerHTML = highlightTokens(result); }
     else { setOutput('错误: 输入不是合法的JSON\n' + e.message, false); }
@@ -187,20 +185,11 @@ function tokenFormat(text) {
   let r = '', indent = 0;
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
-    if (t === '}' || t === ']') {
-      indent--;
-      r += '\n' + '  '.repeat(indent) + t;
-    } else if (t === '{' || t === '[') {
-      r += t + '\n';
-      indent++;
-      r += '  '.repeat(indent);
-    } else if (t === ',') {
-      r += ',\n' + '  '.repeat(indent);
-    } else if (t === ':') {
-      r += ': ';
-    } else {
-      r += t;
-    }
+    if (t === '}' || t === ']') { indent--; r += '\n' + '  '.repeat(indent) + t; }
+    else if (t === '{' || t === '[') { r += t + '\n'; indent++; r += '  '.repeat(indent); }
+    else if (t === ',') { r += ',\n' + '  '.repeat(indent); }
+    else if (t === ':') { r += ': '; }
+    else { r += t; }
   }
   return r;
 }

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON格式化工具</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; padding: 20px; height: 100vh; display: flex; flex-direction: column; }
+h1 { text-align: center; color: #333; margin-bottom: 12px; font-size: 1.4em; }
+.btn-bar { display: flex; gap: 10px; justify-content: center; padding: 0 0 12px; flex-wrap: wrap; }
+.btn-bar button { padding: 8px 20px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; background: #4a90d9; color: #fff; transition: background 0.2s; }
+.btn-bar button:hover { background: #357abd; }
+.main { flex: 1; display: flex; gap: 16px; min-height: 0; }
+.panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.panel-header label { font-size: 12px; color: #666; }
+.panel-header .toggle { font-size: 11px; color: #888; cursor: pointer; user-select: none; }
+.panel-header .toggle:hover { color: #4a90d9; }
+textarea { width: 100%; flex: 1; padding: 12px; font-family: monospace; font-size: 12px; line-height: 1.5; border: 1px solid #ddd; border-radius: 6px; resize: none; outline: none; background: #fff; }
+textarea:focus { border-color: #4a90d9; }
+textarea.nowrap { white-space: pre; overflow-x: auto; }
+.input-wrap { flex: 1; position: relative; min-height: 0; }
+.input-wrap textarea { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.corner-btn { position: absolute; bottom: 8px; right: 8px; padding: 4px 12px; font-size: 11px; border-radius: 4px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s; z-index: 3; }
+.corner-btn:hover { opacity: 1; }
+.paste-btn { border: 1px solid #bbb; background: #e8e8e8; color: #555; }
+.output-wrap { flex: 1; position: relative; min-height: 0; }
+</style>
+</head>
+<body>
+<h1>JSON 格式化工具</h1>
+<div class="btn-bar">
+  <button onclick="formatJSON()">格式化JSON</button>
+  <button onclick="compressJSON()">压缩单行</button>
+  <button onclick="unescapeOnly()">去除转义</button>
+  <button onclick="unescapeAndFormat()">去除转义+格式化</button>
+  <button onclick="escapeText()">增加转义</button>
+</div>
+<div class="main">
+  <div class="panel">
+    <div class="panel-header">
+      <label>输入</label>
+      <span class="toggle" onclick="toggleWrap('input', this)">折行: 开</span>
+    </div>
+    <div class="input-wrap">
+      <textarea id="input" placeholder="在此输入JSON文本或纯文本..."></textarea>
+      <button class="corner-btn paste-btn" onclick="pasteClipboard()">粘贴</button>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-header">
+      <label>输出</label>
+      <span class="toggle" onclick="toggleOutputWrap(this)">折行: 开</span>
+    </div>
+    <div class="output-wrap">
+      <div id="output-pre"></div>
+      <button class="corner-btn copy-btn" onclick="copyOutput()">复制</button>
+    </div>
+  </div>
+</div>
+<style>
+#output-pre { width: 100%; height: 100%; padding: 12px; font-family: monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; overflow: auto; border-radius: 6px; background: #1e1e1e; color: #d4d4d4; border: 1px solid #ddd; margin: 0; }
+#output-pre.nowrap { white-space: pre; word-wrap: normal; }
+.copy-btn { border: 1px solid #555; background: #2d2d2d; color: #ccc; }
+.hl-key { color: #9cdcfe; } .hl-str { color: #d19a66; } .hl-num { color: #e06c75; }
+.hl-bool { color: #e06c75; } .hl-null { color: #f44747; } .error { color: #f44747; }
+.fold-block { }
+.fold-toggle { cursor: pointer; user-select: none; color: #888; display: inline-block; width: 1em; text-align: center; margin-left: -1.2em; }
+.fold-toggle:hover { color: #4a90d9; }
+.fold-content { }
+.fold-content.collapsed { display: none; }
+.fold-placeholder { display: none; cursor: pointer; color: #888; font-style: italic; }
+.fold-placeholder.show { display: inline; }
+.fold-placeholder:hover { color: #4a90d9; }
+</style>
+<script>
+const inputEl = document.getElementById('input');
+const outputEl = document.getElementById('output-pre');
+let rawOutput = '';
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toggleWrap(id, el) {
+  const ta = document.getElementById(id);
+  ta.classList.toggle('nowrap');
+  el.textContent = ta.classList.contains('nowrap') ? '折行: 关' : '折行: 开';
+}
+function toggleOutputWrap(el) {
+  outputEl.classList.toggle('nowrap');
+  el.textContent = outputEl.classList.contains('nowrap') ? '折行: 关' : '折行: 开';
+}
+
+// --- JSON折叠渲染 ---
+let foldId = 0;
+function renderJsonHtml(obj, indent) {
+  indent = indent || 0;
+  const pad = '  '.repeat(indent);
+  const pad1 = '  '.repeat(indent + 1);
+  if (obj === null) return '<span class="hl-null">null</span>';
+  if (typeof obj === 'boolean') return '<span class="hl-bool">' + obj + '</span>';
+  if (typeof obj === 'number') return '<span class="hl-num">' + obj + '</span>';
+  if (typeof obj === 'string') return '<span class="hl-str">' + esc(JSON.stringify(obj)) + '</span>';
+  const id = foldId++;
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) return '[]';
+    let lines = [];
+    for (let i = 0; i < obj.length; i++) {
+      lines.push(pad1 + renderJsonHtml(obj[i], indent + 1) + (i < obj.length - 1 ? ',' : ''));
+    }
+    const summary = esc('[/* ' + obj.length + ' items */]');
+    return '<span class="fold-toggle" id="ft' + id + '" onclick="toggleFold(' + id + ')">▼</span>[' +
+      '\n<span class="fold-content" id="fc' + id + '">' + lines.join('\n') + '\n' + pad + '</span>' +
+      '<span class="fold-placeholder" id="fp' + id + '" onclick="toggleFold(' + id + ')">' + summary + '</span>]';
+  }
+  // object
+  const keys = Object.keys(obj);
+  if (keys.length === 0) return '{}';
+  let lines = [];
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    lines.push(pad1 + '<span class="hl-key">' + esc(JSON.stringify(k)) + '</span>: ' + renderJsonHtml(obj[k], indent + 1) + (i < keys.length - 1 ? ',' : ''));
+  }
+  const summary = esc('{/* ' + keys.length + ' keys */}');
+  return '<span class="fold-toggle" id="ft' + id + '" onclick="toggleFold(' + id + ')">▼</span>{' +
+    '\n<span class="fold-content" id="fc' + id + '">' + lines.join('\n') + '\n' + pad + '</span>' +
+    '<span class="fold-placeholder" id="fp' + id + '" onclick="toggleFold(' + id + ')">' + summary + '</span>}';
+}
+
+function toggleFold(id) {
+  const content = document.getElementById('fc' + id);
+  const ph = document.getElementById('fp' + id);
+  const toggle = document.getElementById('ft' + id);
+  const collapsed = content.classList.toggle('collapsed');
+  ph.classList.toggle('show', collapsed);
+  toggle.textContent = collapsed ? '▶' : '▼';
+}
+
+function highlightTokens(json) {
+  const re = /"(?:\\.|[^"\\])*"\s*:|"(?:\\.|[^"\\])*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\btrue\b|\bfalse\b|\bnull\b|[{}\[\]:,]|\s+/g;
+  const tokens = json.match(re);
+  if (!tokens) return esc(json);
+  let r = '';
+  for (const t of tokens) {
+    if (/^".*":\s*$/.test(t)) {
+      const i = t.lastIndexOf(':');
+      r += '<span class="hl-key">' + esc(t.slice(0, i)) + '</span>' + esc(t.slice(i));
+    } else if (/^"/.test(t)) r += '<span class="hl-str">' + esc(t) + '</span>';
+    else if (/^-?\d/.test(t)) r += '<span class="hl-num">' + esc(t) + '</span>';
+    else if (t === 'true' || t === 'false') r += '<span class="hl-bool">' + t + '</span>';
+    else if (t === 'null') r += '<span class="hl-null">null</span>';
+    else r += esc(t);
+  }
+  return r;
+}
+
+function setOutput(text, isJson, parsed) {
+  rawOutput = text;
+  if (isJson && parsed !== undefined) {
+    foldId = 0;
+    outputEl.innerHTML = renderJsonHtml(parsed, 0);
+  } else if (isJson) {
+    outputEl.innerHTML = highlightTokens(text);
+  } else {
+    outputEl.innerHTML = esc(text);
+  }
+}
+
+function formatJSON() {
+  try {
+    const obj = JSON.parse(inputEl.value);
+    setOutput(JSON.stringify(obj, null, 2), true, obj);
+  } catch(e) {
+    // 尝试对不完整JSON做token级格式化
+    const result = tokenFormat(inputEl.value);
+    if (result) { setOutput(result, false); outputEl.innerHTML = highlightTokens(result); }
+    else { setOutput('错误: 输入不是合法的JSON\n' + e.message, false); }
+  }
+}
+
+function tokenFormat(text) {
+  const re = /"(?:\\.|[^"\\])*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\btrue\b|\bfalse\b|\bnull\b|[{}\[\]:,]/g;
+  const tokens = text.match(re);
+  if (!tokens) return null;
+  let r = '', indent = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t === '}' || t === ']') {
+      indent--;
+      r += '\n' + '  '.repeat(indent) + t;
+    } else if (t === '{' || t === '[') {
+      r += t + '\n';
+      indent++;
+      r += '  '.repeat(indent);
+    } else if (t === ',') {
+      r += ',\n' + '  '.repeat(indent);
+    } else if (t === ':') {
+      r += ': ';
+    } else {
+      r += t;
+    }
+  }
+  return r;
+}
+
+function compressJSON() {
+  try {
+    const obj = JSON.parse(inputEl.value);
+    setOutput(JSON.stringify(obj), true);
+  } catch(e) { setOutput('错误: 输入不是合法的JSON\n' + e.message, false); }
+}
+
+function simpleUnescape(s) {
+  return s.replace(/\\(n|r|t|"|\\)/g, function(_, c) {
+    if (c === 'n') return '\n'; if (c === 'r') return '\r';
+    if (c === 't') return '\t'; if (c === '"') return '"';
+    if (c === '\\') return '\\'; return c;
+  });
+}
+function doUnescape(text) {
+  if (text.startsWith('"') && text.endsWith('"')) {
+    try { return JSON.parse(text); } catch(e) { return simpleUnescape(text); }
+  }
+  return simpleUnescape(text);
+}
+
+function unescapeOnly() { setOutput(doUnescape(inputEl.value), false); }
+
+function unescapeAndFormat() {
+  let text = doUnescape(inputEl.value);
+  try {
+    const obj = JSON.parse(text);
+    setOutput(JSON.stringify(obj, null, 2), true, obj);
+  } catch(e) { setOutput(text, false); }
+}
+
+function escapeText() {
+  let text = inputEl.value;
+  try { text = JSON.stringify(JSON.parse(text)); } catch(e) {}
+  setOutput(text.replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\n/g,'\\n').replace(/\r/g,'\\r').replace(/\t/g,'\\t'), false);
+}
+
+function copyOutput() {
+  navigator.clipboard.writeText(rawOutput).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '已复制';
+    setTimeout(() => btn.textContent = '复制', 1500);
+  });
+}
+function pasteClipboard() {
+  navigator.clipboard.readText().then(text => { inputEl.value = text; });
+}
+</script>
+</body>
+</html>

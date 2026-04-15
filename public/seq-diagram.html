@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>离线序列图工具</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
+        .container { display: flex; gap: 20px; height: 90vh; }
+        #editor { flex: 1; width: 100%; padding: 15px; font-family: monospace; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+        #diagram { flex: 1; background: white; padding: 20px; border: 1px solid #ccc; border-radius: 4px; overflow: auto; }
+        .controls { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <select id="theme">
+            <option value="simple">极简风格 (Simple)</option>
+            <option value="hand">手写风格 (Hand-drawn)</option>
+        </select>
+        <span>在左侧输入，右侧实时更新</span>
+    </div>
+
+    <div class="container">
+        <textarea id="editor">
+Alice->Bob: Hello Bob, how are you?
+Note right of Bob: Bob thinks
+Bob-->Alice: I am good thanks!
+Alice->>Bob: That's great!</textarea>
+        <div id="diagram"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.13.6/underscore-min.js"></script>
+    <script src="https://bramp.github.io/js-sequence-diagrams/js/sequence-diagram-min.js"></script>
+
+    <script>
+        const editor = document.getElementById('editor');
+        const diagramDiv = document.getElementById('diagram');
+        const themeSelect = document.getElementById('theme');
+
+        function render() {
+            diagramDiv.innerHTML = ''; // 清空内容
+            try {
+                const diagram = Diagram.parse(editor.value);
+                diagram.drawSVG('diagram', {
+                    theme: themeSelect.value
+                });
+            } catch (e) {
+                diagramDiv.innerHTML = '<pre style="color:red">' + e.message + '</pre>';
+            }
+        }
+
+        // 监听输入和主题切换
+        editor.addEventListener('input', render);
+        themeSelect.addEventListener('change', render);
+
+        // 初始化渲染
+        render();
+    </script>
+</body>
+</html>

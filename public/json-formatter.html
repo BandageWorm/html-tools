@@ -21,13 +21,13 @@ tailwind.config = {
 </style>
 <style>
 /* 语法高亮 & 折叠 - 不适合用 Tailwind 的部分 */
-#output-pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.code { font-family: Consolas, 'Courier New', monospace, ui-monospace, SFMono-Regular, Menlo !important; font-size: 12px !important; line-height: 1.2 !important; }
 .hl-key { color: #9cdcfe; }
 .hl-str { color: #d19a66; }
 .hl-num { color: #e06c75; }
 .hl-bool { color: #e06c75; }
 .hl-null { color: #f44747; }
-.fold-toggle { cursor: pointer; user-select: none; color: #888; display: inline-block; width: 1em; text-align: center; margin-left: -1.2em; }
+.fold-toggle { cursor: pointer; user-select: none; color: #201f1f; display: inline-block; width: 1em; text-align: center; margin-left: -1.2em; }
 .fold-toggle:hover { color: #3b82f6; }
 .fold-content.collapsed { display: none; }
 .fold-placeholder { display: none; cursor: pointer; color: #888; font-style: italic; }
@@ -75,7 +75,7 @@ tailwind.config = {
       <div class="relative flex-1 min-h-[30vh] lg:min-h-0">
         <textarea id="input"
           placeholder="在此输入JSON文本或纯文本..."
-          class="absolute inset-0 w-full h-full p-3 font-mono text-sm leading-relaxed
+          class="code absolute inset-0 w-full h-full p-3 text-sm leading-relaxed
                  border border-gray-300 rounded-lg resize-none outline-none bg-white
                  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"></textarea>
         <button onclick="pasteClipboard()"
@@ -94,7 +94,7 @@ tailwind.config = {
       </div>
       <div class="relative flex-1 min-h-[30vh] lg:min-h-0">
         <div id="output-pre"
-          class="absolute inset-0 w-full h-full p-3 text-sm leading-relaxed
+          class="code absolute inset-0 w-full h-full p-3 text-sm leading-relaxed
                  whitespace-pre-wrap break-words overflow-auto rounded-lg
                  bg-[#1e1e1e] text-[#d4d4d4] border border-gray-300"></div>
         <button onclick="copyOutput()"

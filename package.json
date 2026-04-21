@@ -4,6 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "npx wrangler pages dev public --ip 0.0.0.0 --port 8788",
-    "deploy": "npx wrangler pages deploy public --project-name html-tools"
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.84.0"
   }
 }

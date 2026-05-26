@@ -4,6 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "npx wrangler pages dev public --ip 0.0.0.0 --port 8788",
+    "start": "node server.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop html-tools",
+    "pm2:restart": "pm2 restart html-tools",
+    "pm2:logs": "pm2 logs html-tools",
     "deploy": "npx wrangler pages deploy public --project-name html-tools"
   }
 }

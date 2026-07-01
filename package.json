@@ -9,6 +9,10 @@
     "pm2:stop": "pm2 stop html-tools",
     "pm2:restart": "pm2 restart html-tools",
     "pm2:logs": "pm2 logs html-tools",
-    "deploy": "npx wrangler pages deploy public --project-name html-tools"
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.106.0"
   }
 }
